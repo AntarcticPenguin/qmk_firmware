@@ -1,0 +1,34 @@
+---
+description: Keychron Q11 右手快捷键（本键盘专用）
+globs: keyboards/keychron/q11/ansi_encoder/**
+alwaysApply: false
+---
+
+# Keychron Q11 ANSI Encoder
+
+> 通用偏好见 `.cursor/rules/qmk-personal.mdc`  
+> 完整表：`快捷键规划.md`（已实现 9 项主映射）
+
+## 已实现映射
+
+| 操作 | 快捷键 |
+|------|--------|
+| Home 单击 | Ctrl+C |
+| PgDn 单击 | Ctrl+V |
+| PgUp 单击 | Ctrl+A |
+| Home+← | Ctrl+Z |
+| Home+↓ | Ctrl+Shift+Z |
+| 右Ctrl+Home | Ctrl+X |
+| 右Ctrl+PgDn | Win+V |
+| 右Ctrl+\ | Ctrl+E |
+| 右Ctrl+Backspace | Ctrl+Shift+Backspace |
+
+Mac 层用 Cmd 替代 Ctrl；Win+V → Cmd+Shift+V。
+
+## 编译
+
+```powershell
+.\compile.ps1
+```
+
+固件：`firmware/keychron_q11/latest.bin`

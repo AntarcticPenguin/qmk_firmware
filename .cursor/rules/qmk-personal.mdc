@@ -1,0 +1,60 @@
+---
+description: QMK 个人固件项目 — 通用偏好与工作流
+alwaysApply: true
+---
+
+# QMK 个人固件项目
+
+## 用户背景
+
+- **左手键盘用户**：常用快捷键优先放到键盘**右手区域**，方便单手操作
+- 设计快捷键时，优先考虑右手侧的修饰键（如右 Ctrl）+ 方向键/邻近按键
+- Mac/Windows 双模式键盘需用 layer 判断区分 Cmd 与 Ctrl
+
+## 项目结构
+
+```
+qmk_firmware/
+  firmware/                    ← 所有键盘的 .bin 统一放这里
+    keychron_q11/
+      latest.bin               ← 刷机用这个
+      archive/                 ← 历史版本
+    <其他键盘>/                ← 以后新增
+  keyboards/.../               ← 各键盘源码与 keymap
+```
+
+## 我的键盘
+
+| 固件目录 | 源码路径 | 编译脚本 |
+|----------|----------|----------|
+| `firmware/keychron_q11/` | `keyboards/keychron/q11/ansi_encoder/` | `ansi_encoder/compile.ps1` |
+
+新增键盘时：在 `firmware/<名称>/` 建文件夹，并在上表补充一行。
+
+## 通用工作流
+
+1. 编辑对应键盘的 `keymaps/default/keymap.c`（或自定义 keymap）
+2. 运行该键盘目录下的 `compile.ps1`，或手动编译后复制到 `firmware/<名称>/`
+3. 用户自行刷写 `firmware/<名称>/latest.bin`（不要自动刷固件）
+
+## 编译环境（Windows）
+
+QMK CLI 必须在 MINGW64 环境运行。Cursor / PowerShell 中通过：
+
+```powershell
+C:\QMK_MSYS\shell_connector.cmd -lc "cd /c/Tools/qmk/qmk_firmware && qmk compile -kb <keyboard> -km default"
+```
+
+各键盘的 `compile.ps1` 已封装编译 + 归档 + 清理根目录临时 `.bin`。
+
+## 添加新快捷键的通用模式
+
+在 `process_record_user()` 中检测右手修饰键 + 目标键，发送系统快捷键：
+
+```c
+if (record->event.pressed && (get_mods() & MOD_BIT_RCTRL)) {
+    // 根据 keycode 发送 LCTL(...) 或 LGUI(...)
+}
+```
+
+具体映射见各键盘目录下的 `自定义说明.md` 与 Obsidian `Projects/QMK/`。

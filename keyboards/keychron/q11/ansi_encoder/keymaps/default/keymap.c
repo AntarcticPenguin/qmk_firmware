@@ -25,6 +25,191 @@ enum layers{
 #define KC_TASK LGUI(KC_TAB)
 #define KC_FLXP LGUI(KC_E)
 
+// 右手 Home/PgUp/PgDn + 右 Ctrl 快捷键（左手用户，固定发 Windows Ctrl）
+#define TAP_TERM_MS        200
+#define REPEAT_DELAY_MS    350
+#define REPEAT_INTERVAL_MS 45
+#define ON_BASE_LAYER() (get_highest_layer(layer_state) == MAC_BASE || get_highest_layer(layer_state) == WIN_BASE)
+
+typedef struct {
+    bool     rctrl_held;
+    bool     home_held;
+    bool     home_chord;
+    bool     home_mods_on;
+    uint16_t home_timer;
+    bool     pgdn_chord;
+    uint16_t pgdn_timer;
+    uint16_t pgup_timer;
+    bool     left_held;
+    bool     down_held;
+    bool     repeat_undo;
+    bool     repeat_redo;
+    bool     repeat_ready;
+    uint16_t repeat_timer;
+} right_shortcut_state_t;
+
+static right_shortcut_state_t right_state;
+
+static void clear_home_mods(void) {
+    if (right_state.home_mods_on) {
+        unregister_mods(MOD_BIT_LCTRL | MOD_BIT_LSHIFT);
+        right_state.home_mods_on = false;
+    }
+}
+
+static void send_undo(void) {
+    if (!right_state.home_mods_on) {
+        register_mods(MOD_BIT_LCTRL);
+        right_state.home_mods_on = true;
+    }
+    tap_code(KC_Z);
+}
+
+static void send_redo(void) {
+    if (!right_state.home_mods_on) {
+        register_mods(MOD_BIT_LCTRL | MOD_BIT_LSHIFT);
+        right_state.home_mods_on = true;
+    }
+    tap_code(KC_Z);
+}
+
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (!ON_BASE_LAYER()) {
+        return true;
+    }
+
+    if (keycode == KC_RCTL) {
+        right_state.rctrl_held = record->event.pressed;
+        return true;
+    }
+
+    if (record->event.pressed && right_state.rctrl_held) {
+        switch (keycode) {
+            case KC_HOME:
+                right_state.home_chord = true;
+                tap_code16(LCTL(KC_X));
+                return false;
+            case KC_PGDN:
+                right_state.pgdn_chord = true;
+                tap_code16(LGUI(KC_V));
+                return false;
+            case KC_BSLS:
+                tap_code16(LCTL(KC_E));
+                return false;
+            case KC_BSPC:
+                tap_code16(LSFT(LCTL(KC_BSPC)));
+                return false;
+        }
+    }
+
+    switch (keycode) {
+        case KC_HOME:
+            if (record->event.pressed) {
+                right_state.home_held  = true;
+                right_state.home_chord = false;
+                right_state.home_timer = timer_read();
+            } else {
+                uint16_t elapsed = timer_elapsed(right_state.home_timer);
+                if (!right_state.home_chord && elapsed < TAP_TERM_MS) {
+                    tap_code16(LCTL(KC_C));
+                }
+                right_state.home_held = false;
+                right_state.repeat_undo = false;
+                right_state.repeat_redo = false;
+                right_state.repeat_ready = false;
+                clear_home_mods();
+            }
+            return false;
+
+        case KC_PGUP:
+            if (record->event.pressed) {
+                right_state.pgup_timer = timer_read();
+            } else if (timer_elapsed(right_state.pgup_timer) < TAP_TERM_MS) {
+                tap_code16(LCTL(KC_A));
+            }
+            return false;
+
+        case KC_PGDN:
+            if (record->event.pressed) {
+                right_state.pgdn_chord = false;
+                right_state.pgdn_timer = timer_read();
+            } else if (!right_state.pgdn_chord && timer_elapsed(right_state.pgdn_timer) < TAP_TERM_MS) {
+                tap_code16(LCTL(KC_V));
+            }
+            return false;
+
+        case KC_LEFT:
+            if (right_state.home_held) {
+                if (record->event.pressed) {
+                    right_state.home_chord = true;
+                    right_state.left_held  = true;
+                    right_state.repeat_undo = true;
+                    right_state.repeat_ready = false;
+                    right_state.repeat_timer = timer_read();
+                    send_undo();
+                } else {
+                    right_state.left_held  = false;
+                    right_state.repeat_undo = false;
+                    if (!right_state.down_held) {
+                        right_state.repeat_ready = false;
+                        clear_home_mods();
+                    }
+                }
+                return false;
+            }
+            break;
+
+        case KC_DOWN:
+            if (right_state.home_held) {
+                if (record->event.pressed) {
+                    right_state.home_chord = true;
+                    right_state.down_held  = true;
+                    right_state.repeat_redo = true;
+                    right_state.repeat_ready = false;
+                    right_state.repeat_timer = timer_read();
+                    send_redo();
+                } else {
+                    right_state.down_held  = false;
+                    right_state.repeat_redo = false;
+                    if (!right_state.left_held) {
+                        right_state.repeat_ready = false;
+                        clear_home_mods();
+                    }
+                }
+                return false;
+            }
+            break;
+    }
+
+    return true;
+}
+
+void matrix_scan_user(void) {
+    if (!right_state.repeat_undo && !right_state.repeat_redo) {
+        return;
+    }
+
+    if (!right_state.home_held) {
+        return;
+    }
+
+    uint16_t elapsed = timer_elapsed(right_state.repeat_timer);
+    uint16_t threshold = right_state.repeat_ready ? REPEAT_INTERVAL_MS : REPEAT_DELAY_MS;
+
+    if (elapsed < threshold) {
+        return;
+    }
+
+    right_state.repeat_timer = timer_read();
+    right_state.repeat_ready = true;
+
+    if (right_state.repeat_undo && right_state.left_held) {
+        send_undo();
+    } else if (right_state.repeat_redo && right_state.down_held) {
+        send_redo();
+    }
+}
+
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [MAC_BASE] = LAYOUT_91_ansi(
         KC_MUTE,  KC_ESC,   KC_BRID,  KC_BRIU,  KC_MCTL,  KC_LPAD,  RM_VALD,   RM_VALU,  KC_MPRV,  KC_MPLY,  KC_MNXT,  KC_MUTE,  KC_VOLD,    KC_VOLU,  KC_INS,   KC_DEL,   KC_MUTE,
