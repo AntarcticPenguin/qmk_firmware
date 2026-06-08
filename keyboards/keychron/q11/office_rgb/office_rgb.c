@@ -140,6 +140,24 @@ static uint8_t office_rgb_brightness(void) {
 
 
 
+static bool office_led_is_left_half(uint8_t led_idx) {
+
+#if defined(RGB_MATRIX_SPLIT)
+
+    const uint8_t split[2] = RGB_MATRIX_SPLIT;
+
+    return led_idx < split[0];
+
+#else
+
+    return g_led_config.point[led_idx].x < OFFICE_SPLIT_X;
+
+#endif
+
+}
+
+
+
 static rgb_t office_zone_rgb(office_zone_t zone) {
 
     hsv_t hsv = {0, 0, office_rgb_brightness()};
@@ -520,7 +538,7 @@ void office_rgb_render_static(uint8_t led_min, uint8_t led_max) {
 
         if (dual_mode) {
 
-            hsv_t hsv = {g_led_config.point[i].x < OFFICE_SPLIT_X ? left_hue_sync : right_hue_sync, UINT8_MAX, brightness};
+            hsv_t hsv = {office_led_is_left_half(i) ? left_hue_sync : right_hue_sync, UINT8_MAX, brightness};
 
             rgb       = hsv_to_rgb(hsv);
 

@@ -32,6 +32,7 @@ typedef enum {
 
 
 
+// 非 split 键盘回退用；Q11 纯色模式按 RGB_MATRIX_SPLIT LED 索引分左右半区
 #define OFFICE_SPLIT_X 108
 
 
