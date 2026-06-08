@@ -4,10 +4,11 @@ globs: keyboards/keychron/q11/ansi_encoder/**
 alwaysApply: false
 ---
 
-# Keychron Q11 ANSI Encoder
+# Keychron Q11 ANSI Encoder（办公用）
 
 > 通用偏好见 `.cursor/rules/qmk-personal.mdc`  
-> 完整表：`快捷键规划.md`（已实现 9 项主映射）
+> 完整表：`快捷键规划.md`（已实现 9 项主映射）  
+> 游戏用为另一块 Keychron Q11，固件见 `firmware/gaming/keychron_q11/`
 
 ## 已实现映射
 
@@ -31,4 +32,4 @@ Mac 层用 Cmd 替代 Ctrl；Win+V → Cmd+Shift+V。
 .\compile.ps1
 ```
 
-固件：`firmware/keychron_q11/latest.bin`
+固件：`firmware/office/keychron_q11/latest.bin`

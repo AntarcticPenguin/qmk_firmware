@@ -76,6 +76,7 @@
         "driver": "snled27351",
         "animations": {
             "breathing": true,
+            "band_val": true,
             "band_spiral_val": true,
             "cycle_all": true,
             "cycle_left_right": true,

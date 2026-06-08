@@ -10,32 +10,46 @@ alwaysApply: true
 - **左手键盘用户**：常用快捷键优先放到键盘**右手区域**，方便单手操作
 - 设计快捷键时，优先考虑右手侧的修饰键（如右 Ctrl）+ 方向键/邻近按键
 - Mac/Windows 双模式键盘需用 layer 判断区分 Cmd 与 Ctrl
+- **两块键盘**：一个游戏用，一个办公用；固件 `.bin` 分目录存放
 
 ## 项目结构
 
 ```
 qmk_firmware/
-  firmware/                    ← 所有键盘的 .bin 统一放这里
-    keychron_q11/
-      latest.bin               ← 刷机用这个
-      archive/                 ← 历史版本
-    <其他键盘>/                ← 以后新增
+  firmware/
+    gaming/                  ← 游戏用键盘固件
+      keychron_q11/
+        latest.bin
+        archive/
+    office/                  ← 办公用键盘固件
+      keychron_q11/
+        latest.bin
+        archive/
   keyboards/.../               ← 各键盘源码与 keymap
 ```
 
 ## 我的键盘
 
-| 固件目录 | 源码路径 | 编译脚本 |
-|----------|----------|----------|
-| `firmware/keychron_q11/` | `keyboards/keychron/q11/ansi_encoder/` | `ansi_encoder/compile.ps1` |
+| 用途 | 键盘 | 固件目录 | 源码路径 | 编译脚本 |
+|------|------|----------|----------|----------|
+| 游戏 | Keychron Q11 | `firmware/gaming/keychron_q11/` | `keyboards/keychron/q11/ansi_encoder/` | `ansi_encoder/compile-gaming.ps1` |
+| 办公 | Keychron Q11 ANSI Encoder | `firmware/office/keychron_q11/` | `keyboards/keychron/q11/ansi_encoder/` | `ansi_encoder/compile.ps1` |
 
-新增键盘时：在 `firmware/<名称>/` 建文件夹，并在上表补充一行。
+## 灯光模式称谓
+
+**办公**（`office_rgb/`，循环顺序）：**关闭** → **纯色** → **纯色涟漪** → **纯色波浪** → **办公彩**
+
+**游戏**（`gaming_rgb/`，循环顺序）：**关闭** → **纯色**
+
+两块键盘**操作相同**：按住左旋钮 + 左/右空格切模式；旋转左旋钮调亮度；按住左旋钮 + 方向键调色（办公各模式见 `office_rgb/README.md`；游戏 **纯色** 下 ←/→ 色相、↑/↓ 饱和度）。
+
+新增键盘时：在对应用途目录下建 `firmware/<gaming|office>/<名称>/`，并更新上表。
 
 ## 通用工作流
 
 1. 编辑对应键盘的 `keymaps/default/keymap.c`（或自定义 keymap）
-2. 运行该键盘目录下的 `compile.ps1`，或手动编译后复制到 `firmware/<名称>/`
-3. 用户自行刷写 `firmware/<名称>/latest.bin`（不要自动刷固件）
+2. 运行该键盘目录下的 `compile.ps1`，或手动编译后复制到 `firmware/<gaming|office>/<名称>/`
+3. 用户自行刷写对应目录下的 `latest.bin`（不要自动刷固件）
 
 ## 编译环境（Windows）
 
