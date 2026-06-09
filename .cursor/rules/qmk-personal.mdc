@@ -10,65 +10,59 @@ alwaysApply: true
 - **左手键盘用户**：常用快捷键优先放到键盘**右手区域**，方便单手操作
 - 设计快捷键时，优先考虑右手侧的修饰键（如右 Ctrl）+ 方向键/邻近按键
 - Mac/Windows 双模式键盘需用 layer 判断区分 Cmd 与 Ctrl
-- **两块键盘**：一个游戏用，一个办公用；固件 `.bin` 分目录存放
+- **两块键盘**：物理上区分游戏 / 办公，但**固件逻辑默认通用**——快捷键与灯效模式代码各一份，改一处两边同步编译
+- 只有用户**明确说明**某键「游戏专用」或「办公专用」时，才在对应 keymap 里分叉
 
 ## 项目结构
 
 ```
 qmk_firmware/
   firmware/
-    gaming/                  ← 游戏用键盘固件
+    gaming/                  ← 游戏用键盘刷写目录
       keychron_q11/
-        latest.bin
-        archive/
-    office/                  ← 办公用键盘固件
+    office/                  ← 办公用键盘刷写目录
       keychron_q11/
-        latest.bin
-        archive/
-  keyboards/.../               ← 各键盘源码与 keymap
+  keyboards/keychron/q11/
+    q11_rgb/                   ← 灯效（共用）
+    q11_shortcuts/             ← 快捷键（共用）
+    ansi_encoder/keymaps/
+      keymap.inc               ← 键位布局（共用）
+      default/                 ← 办公：仅 config.h profile 不同
+      gaming/
 ```
+
+**不要**在 `C:\Tools\qmk\` 根目录或仓库外创建 `office_rgb/`、`gaming_rgb/` 等目录；所有源码放在 `qmk_firmware/keyboards/...` 内。编译产物只应出现在 `.build/` 或 `firmware/`。
 
 ## 我的键盘
 
-| 用途 | 键盘 | 固件目录 | 源码路径 | 编译脚本 |
-|------|------|----------|----------|----------|
-| 游戏 | Keychron Q11 | `firmware/gaming/keychron_q11/` | `keyboards/keychron/q11/ansi_encoder/` | `ansi_encoder/compile-gaming.ps1` |
-| 办公 | Keychron Q11 ANSI Encoder | `firmware/office/keychron_q11/` | `keyboards/keychron/q11/ansi_encoder/` | `ansi_encoder/compile.ps1` |
+| 用途 | 键盘 | 固件目录 | 编译脚本 |
+|------|------|----------|----------|
+| 游戏 | Keychron Q11 | `firmware/gaming/keychron_q11/` | `ansi_encoder/compile-gaming.ps1` |
+| 办公 | Keychron Q11 | `firmware/office/keychron_q11/` | `ansi_encoder/compile.ps1` |
 
-## 灯光模式称谓
+两块键盘源码路径相同：`keyboards/keychron/q11/ansi_encoder/`。
 
-**办公**（`office_rgb/`，循环顺序）：**关闭** → **纯色** → **纯色涟漪** → **纯色波浪** → **办公彩**
+## 办公 vs 游戏的唯一差异
 
-**游戏**（`gaming_rgb/`，循环顺序）：**关闭** → **纯色**
+| | 办公 keymap `default` | 游戏 keymap `gaming` |
+|--|----------------------|----------------------|
+| 灯效循环 | `Q11_RGB_PROFILE_OFFICE`（5 种） | `Q11_RGB_PROFILE_GAMING`（2 种） |
+| 快捷键 / 键位 | 共用 `q11_shortcuts/` + `keymap.inc` | 同上 |
 
-两块键盘**操作相同**：按住左旋钮 + 左/右空格切模式；旋转左旋钮调亮度；按住左旋钮 + 方向键调色（办公各模式见 `office_rgb/README.md`；游戏 **纯色** 下 ←/→ 色相、↑/↓ 饱和度）。
+## 灯光
 
-新增键盘时：在对应用途目录下建 `firmware/<gaming|office>/<名称>/`，并更新上表。
+详见 `q11_rgb/README.md`。调色：纯色 ←/→ 左半、↑/↓ 右半、PgUp/PgDn 饱和度；涟漪/波浪 ←/→ 色相、PgUp/PgDn 饱和度。
 
-## 通用工作流
+## 工作流
 
-1. 编辑对应键盘的 `keymaps/default/keymap.c`（或自定义 keymap）
-2. 运行该键盘目录下的 `compile.ps1`，或手动编译后复制到 `firmware/<gaming|office>/<名称>/`
-3. 用户自行刷写对应目录下的 `latest.bin`（不要自动刷固件）
+1. 改快捷键 → `q11_shortcuts/q11_shortcuts.c`；改键位 → `keymaps/keymap.inc`；改灯效 → `q11_rgb/`
+2. 分别运行 `compile.ps1` / `compile-gaming.ps1`
+3. 用户自行刷写对应 `latest.bin`（不要自动刷固件）
 
 ## 编译环境（Windows）
 
-QMK CLI 必须在 MINGW64 环境运行。Cursor / PowerShell 中通过：
-
 ```powershell
-C:\QMK_MSYS\shell_connector.cmd -lc "cd /c/Tools/qmk/qmk_firmware && qmk compile -kb <keyboard> -km default"
+C:\QMK_MSYS\shell_connector.cmd -lc "cd /c/Tools/qmk/qmk_firmware && qmk compile -kb keychron/q11/ansi_encoder -km default"
 ```
 
-各键盘的 `compile.ps1` 已封装编译 + 归档 + 清理根目录临时 `.bin`。
-
-## 添加新快捷键的通用模式
-
-在 `process_record_user()` 中检测右手修饰键 + 目标键，发送系统快捷键：
-
-```c
-if (record->event.pressed && (get_mods() & MOD_BIT_RCTRL)) {
-    // 根据 keycode 发送 LCTL(...) 或 LGUI(...)
-}
-```
-
-具体映射见各键盘目录下的 `自定义说明.md` 与 Obsidian `Projects/QMK/`。
+具体映射见 `ansi_encoder/自定义说明.md` 与 Obsidian `Projects/QMK/`。

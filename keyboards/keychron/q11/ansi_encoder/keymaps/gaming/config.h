@@ -1,7 +1,8 @@
-// 游戏用 Q11 固件（仅关闭 / 常亮）
+// 游戏用 Q11 固件
 #pragma once
 
 #undef DEVICE_VER
 #define DEVICE_VER 0x0101
 
-#include "../../../base_rgb/rgb_config.h"
+#define Q11_RGB_PROFILE_GAMING
+#include "../../../q11_rgb/rgb_config.h"

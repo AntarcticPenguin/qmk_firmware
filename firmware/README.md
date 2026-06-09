@@ -8,8 +8,8 @@
 
 | 用途 | 键盘 | 固件目录 | 说明 |
 |------|------|----------|------|
-| 游戏 | Keychron Q11 | `firmware/gaming/keychron_q11/` | keymap `gaming`；`gaming_rgb/` 灯效 |
-| 办公 | Keychron Q11 ANSI Encoder | `firmware/office/keychron_q11/` | keymap `default`；`office_rgb/` 灯效 + IDEA 快捷键 |
+| 游戏 | Keychron Q11 | `firmware/gaming/keychron_q11/` | keymap `gaming`；共用 `q11_rgb/` + `q11_shortcuts/` |
+| 办公 | Keychron Q11 ANSI Encoder | `firmware/office/keychron_q11/` | keymap `default`；共用 `q11_rgb/` + `q11_shortcuts/` |
 
 ## 目录结构
 

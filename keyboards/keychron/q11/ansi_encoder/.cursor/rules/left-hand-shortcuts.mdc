@@ -1,14 +1,14 @@
 ---
-description: Keychron Q11 右手快捷键（本键盘专用）
-globs: keyboards/keychron/q11/ansi_encoder/**
+description: Keychron Q11 右手快捷键（两块键盘共用）
+globs: keyboards/keychron/q11/**
 alwaysApply: false
 ---
 
-# Keychron Q11 ANSI Encoder（办公用）
+# Keychron Q11 ANSI Encoder — 右手快捷键
 
 > 通用偏好见 `.cursor/rules/qmk-personal.mdc`  
-> 完整表：`快捷键规划.md`（已实现 9 项主映射）  
-> 游戏用为另一块 Keychron Q11，固件见 `firmware/gaming/keychron_q11/`
+> 完整表：`快捷键规划.md`  
+> 源码：`q11_shortcuts/q11_shortcuts.c`（办公 / 游戏 keymap 共用，改一处两边同步）
 
 ## 已实现映射
 
@@ -28,8 +28,5 @@ Mac 层用 Cmd 替代 Ctrl；Win+V → Cmd+Shift+V。
 
 ## 编译
 
-```powershell
-.\compile.ps1
-```
-
-固件：`firmware/office/keychron_q11/latest.bin`
+办公：`.\compile.ps1` → `firmware/office/keychron_q11/latest.bin`  
+游戏：`.\compile-gaming.ps1` → `firmware/gaming/keychron_q11/latest.bin`

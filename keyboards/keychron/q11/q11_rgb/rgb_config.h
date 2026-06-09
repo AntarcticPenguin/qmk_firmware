@@ -1,4 +1,4 @@
-// 两块 Q11 共用的基础 RGB 配置（办公 / 游戏 keymap 均 include）
+// 两块 Q11 共用 RGB 基线配置（办公 / 游戏 keymap 均 include）
 #pragma once
 
 #define BASE_RGB_FIXED_VAL UINT8_MAX
@@ -32,5 +32,4 @@
 #undef ENABLE_RGB_MATRIX_SOLID_SPLASH
 #undef ENABLE_RGB_MATRIX_BAND_VAL
 
-// 办公自定义 reactive 灯效（纯色涟漪）需要按键追踪
 #define RGB_MATRIX_KEYPRESSES

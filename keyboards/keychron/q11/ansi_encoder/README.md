@@ -6,9 +6,7 @@
 |------|------|
 | `自定义说明.md` | 快捷键、编译刷机、USB 版本 |
 | `快捷键规划.md` | 右手快捷键映射表 |
-| `office_rgb/README.md` | 办公灯效模式与操作 |
-| `gaming_rgb/README.md` | 游戏灯效模式与操作 |
-| `base_rgb/README.md` | 共用 RGB 配置说明 |
+| `q11_rgb/README.md` | 灯效模式、操作、源码说明 |
 
 ## 编译
 
