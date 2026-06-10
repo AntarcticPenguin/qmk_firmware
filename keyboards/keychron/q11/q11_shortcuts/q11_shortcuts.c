@@ -15,6 +15,7 @@ typedef struct {
     bool     home_chord;
     bool     home_mods_on;
     uint16_t home_timer;
+    bool     pgdn_held;
     bool     pgdn_chord;
     uint16_t pgdn_timer;
     uint16_t pgup_timer;
@@ -109,11 +110,17 @@ bool q11_shortcuts_process_record(uint16_t keycode, keyrecord_t *record) {
         switch (keycode) {
             case KC_HOME:
                 shortcut_state.home_chord = true;
-                tap_code16(LCTL(KC_X));
+                tap_code16(LGUI(KC_V));
                 return false;
             case KC_PGDN:
                 shortcut_state.pgdn_chord = true;
-                tap_code16(LGUI(KC_V));
+                tap_code16(LCTL(KC_X));
+                return false;
+            case KC_UP:
+                tap_code16(LCTL(KC_F));
+                return false;
+            case KC_RGHT:
+                tap_code16(LSFT(LCTL(KC_F)));
                 return false;
             case KC_BSLS:
                 tap_code16(LCTL(KC_E));
@@ -140,7 +147,7 @@ bool q11_shortcuts_process_record(uint16_t keycode, keyrecord_t *record) {
             } else {
                 uint16_t elapsed = timer_elapsed(shortcut_state.home_timer);
                 if (!shortcut_state.home_chord && elapsed < TAP_TERM_MS) {
-                    tap_code16(LCTL(KC_C));
+                    tap_code16(LCTL(KC_V));
                 }
                 shortcut_state.home_held   = false;
                 shortcut_state.repeat_undo = false;
@@ -161,11 +168,22 @@ bool q11_shortcuts_process_record(uint16_t keycode, keyrecord_t *record) {
         case KC_PGDN:
             if (record->event.pressed) {
                 shortcut_state.pgdn_chord = false;
-                shortcut_state.pgdn_timer = timer_read();
-            } else if (!shortcut_state.pgdn_chord && timer_elapsed(shortcut_state.pgdn_timer) < TAP_TERM_MS) {
-                tap_code16(LCTL(KC_V));
+                shortcut_state.pgdn_held   = true;
+                shortcut_state.pgdn_timer  = timer_read();
+            } else {
+                if (!shortcut_state.pgdn_chord && timer_elapsed(shortcut_state.pgdn_timer) < TAP_TERM_MS) {
+                    tap_code16(LCTL(KC_C));
+                }
+                shortcut_state.pgdn_held = false;
             }
             return false;
+
+        case KC_DEL:
+            if (record->event.pressed && (get_mods() & MOD_MASK_CTRL) && (get_mods() & MOD_MASK_ALT)) {
+                tap_code(MS_BTN1);
+                return false;
+            }
+            return true;
 
         case KC_LEFT:
         case KC_RGHT:
@@ -174,6 +192,20 @@ bool q11_shortcuts_process_record(uint16_t keycode, keyrecord_t *record) {
             if (q11_rgb_process_enc_key(keycode, record, shortcut_state.enc_l_held)) {
                 if (record->event.pressed) {
                     shortcut_state.enc_l_chord = true;
+                }
+                return false;
+            }
+            if (keycode == KC_LEFT && shortcut_state.pgdn_held) {
+                if (record->event.pressed) {
+                    shortcut_state.pgdn_chord = true;
+                    tap_code16(LCTL(LALT(KC_LEFT)));
+                }
+                return false;
+            }
+            if (keycode == KC_RGHT && shortcut_state.pgdn_held) {
+                if (record->event.pressed) {
+                    shortcut_state.pgdn_chord = true;
+                    tap_code16(LCTL(LALT(KC_RGHT)));
                 }
                 return false;
             }
