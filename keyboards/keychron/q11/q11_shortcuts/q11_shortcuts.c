@@ -84,7 +84,6 @@ bool q11_shortcuts_process_record(uint16_t keycode, keyrecord_t *record) {
             case KC_PGDN:
             case KC_INS:
             case KC_DEL:
-            case KC_HOME:
                 q11_rgb_process_enc_key(keycode, record, true);
                 if (record->event.pressed) {
                     shortcut_state.enc_l_chord = true;
@@ -137,13 +136,6 @@ bool q11_shortcuts_process_record(uint16_t keycode, keyrecord_t *record) {
 
     switch (keycode) {
         case KC_HOME:
-            if (q11_rgb_process_enc_key(keycode, record, shortcut_state.enc_l_held)) {
-                if (record->event.pressed) {
-                    shortcut_state.enc_l_chord = true;
-                    shortcut_state.home_chord  = true;
-                }
-                return false;
-            }
             if (record->event.pressed) {
                 shortcut_state.home_held  = true;
                 shortcut_state.home_chord = false;

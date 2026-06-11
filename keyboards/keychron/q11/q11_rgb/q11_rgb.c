@@ -8,8 +8,11 @@
 #endif
 
 #define Q11_SAT_STEP   8
-#define Q11_SAT_LEVELS 6
+#define Q11_SAT_LEVELS 8
 #define Q11_BAND_SPEED (UINT8_MAX / 4)
+
+// keyboard.json rgb_matrix.split_count: 42 + 47
+#define Q11_RGB_LEFT_LED_COUNT 42
 
 // 色环：8 标准色 + 8 过渡（相邻标准色中点）；←/→ / ↑/↓ 在表中逐步切换，避免步进 8 导致相邻档肉眼难分
 static const uint8_t q11_hue_table[] = {
@@ -32,8 +35,8 @@ static const uint8_t q11_hue_table[] = {
 };
 #define Q11_HUE_COUNT (sizeof(q11_hue_table) / sizeof(q11_hue_table[0]))
 
-// 饱和度档位：高端步进缩小（255→225 仅差 30），避免深红一档跳到「几乎不红」
-static const uint8_t q11_sat_table[Q11_SAT_LEVELS] = {0, 48, 110, 175, 225, 255};
+// 饱和度 8 档：去掉近白低段（原 0–175），只在可见色范围内细分；255↔251 步进 4
+static const uint8_t q11_sat_table[Q11_SAT_LEVELS] = {205, 215, 225, 233, 240, 246, 251, 255};
 
 static const q11_rgb_mode_t q11_rgb_cycle_modes[] = {Q11_RGB_CYCLE_LIST};
 #define Q11_RGB_CYCLE_COUNT (sizeof(q11_rgb_cycle_modes) / sizeof(q11_rgb_cycle_modes[0]))
@@ -145,10 +148,22 @@ static rgb_t zone_rgb(q11_zone_t zone) {
     return hsv_to_rgb(hsv);
 }
 
-static uint8_t sat_from_level(uint8_t level) {
+// 黄/青满饱和时已有两路 RGB 顶格，再降 S 主要抬第三路 → 很快趋近白；单独抬高低端
+static uint8_t sat_from_level_for_hue(uint8_t hue, uint8_t level) {
     if (level >= Q11_SAT_LEVELS) {
         level = Q11_SAT_LEVELS - 1;
     }
+
+    if (hue >= 18 && hue <= 72) {
+        static const uint8_t yellow_sat_table[Q11_SAT_LEVELS] = {228, 234, 238, 242, 246, 250, 253, 255};
+        return yellow_sat_table[level];
+    }
+
+    if (hue >= 100 && hue <= 155) {
+        static const uint8_t cyan_sat_table[Q11_SAT_LEVELS] = {222, 228, 233, 238, 243, 248, 252, 255};
+        return cyan_sat_table[level];
+    }
+
     return q11_sat_table[level];
 }
 
@@ -207,22 +222,21 @@ static void q11_rgb_push_config(void) {}
 //   hsv.s   → 右半色相（此处不是 HSV 饱和度）
 //   speed   → 高 4 位左半 sat 档，低 4 位右半 sat 档
 
-static uint8_t q11_solid_hue_for_this_half(void) {
-#if defined(RGB_MATRIX_SPLIT)
-    return is_keyboard_left() ? rgb_matrix_config.hsv.h : rgb_matrix_config.hsv.s;
-#else
-    return rgb_matrix_config.hsv.h;
-#endif
+static bool q11_led_is_left_half(uint8_t led_idx) {
+    return led_idx < Q11_RGB_LEFT_LED_COUNT;
 }
 
-static uint8_t q11_solid_sat_for_this_half(void) {
+static void q11_solid_hsv_for_led(uint8_t led_idx, hsv_t *hsv) {
     const uint8_t packed = rgb_matrix_config.speed;
-#if defined(RGB_MATRIX_SPLIT)
-    const uint8_t level = is_keyboard_left() ? (packed >> 4) : (packed & 0x0F);
-#else
-    const uint8_t level = packed >> 4;
-#endif
-    return sat_from_level(level);
+
+    hsv->v = q11_rgb_brightness();
+    if (q11_led_is_left_half(led_idx)) {
+        hsv->h = rgb_matrix_config.hsv.h;
+        hsv->s = sat_from_level_for_hue(hsv->h, packed >> 4);
+    } else {
+        hsv->h = rgb_matrix_config.hsv.s;
+        hsv->s = sat_from_level_for_hue(hsv->h, packed & 0x0F);
+    }
 }
 
 static void apply_solid_colors(void) {
@@ -360,13 +374,11 @@ bool q11_rgb_process_enc_key(uint16_t keycode, keyrecord_t *record, bool enc_l_h
         case Q11_RGB_SOLID:
             switch (keycode) {
                 case KC_LEFT:
-                    cycle_hue(&solid_color.left_hue, true);
-                    solid_color.right_hue = solid_color.left_hue;
+                    cycle_hue(&solid_color.left_hue, false);
                     apply_solid_colors();
                     return true;
                 case KC_RGHT:
-                    cycle_hue(&solid_color.left_hue, false);
-                    solid_color.right_hue = solid_color.left_hue;
+                    cycle_hue(&solid_color.left_hue, true);
                     apply_solid_colors();
                     return true;
                 case KC_UP:
@@ -454,8 +466,6 @@ void q11_rgb_render_static(uint8_t led_min, uint8_t led_max) {
         return;
     }
 
-    const uint8_t brightness = q11_rgb_brightness();
-
     for (uint8_t i = led_min; i < led_max; i++) {
         if (!HAS_ANY_FLAGS(g_led_config.flags[i], rgb_matrix_get_flags())) {
             continue;
@@ -464,11 +474,8 @@ void q11_rgb_render_static(uint8_t led_min, uint8_t led_max) {
         rgb_t rgb;
 
         if (solid_mode) {
-            hsv_t hsv = {
-                q11_solid_hue_for_this_half(),
-                q11_solid_sat_for_this_half(),
-                brightness,
-            };
+            hsv_t hsv;
+            q11_solid_hsv_for_led(i, &hsv);
             rgb = hsv_to_rgb(hsv);
         } else {
             rgb = zone_rgb(zone_for_led(i));
