@@ -7,13 +7,33 @@
 #    include "transport.h"
 #endif
 
-#define Q11_HUE_STEP   8
 #define Q11_SAT_STEP   8
-#define Q11_SAT_LEVELS 5
+#define Q11_SAT_LEVELS 6
 #define Q11_BAND_SPEED (UINT8_MAX / 4)
 
-// 0 = 近白，255 = 最浓；中间档在同色相下由浅到深
-static const uint8_t q11_sat_table[Q11_SAT_LEVELS] = {0, 48, 112, 180, 255};
+// 色环：8 标准色 + 8 过渡（相邻标准色中点）；←/→ / ↑/↓ 在表中逐步切换，避免步进 8 导致相邻档肉眼难分
+static const uint8_t q11_hue_table[] = {
+    0,   // 红
+    10,  // 红→橙
+    21,  // 橙
+    32,  // 橙→黄
+    43,  // 黄
+    64,  // 黄→绿
+    85,  // 绿
+    106, // 绿→青
+    128, // 青
+    149, // 青→蓝
+    170, // 蓝
+    180, // 蓝→紫
+    191, // 紫
+    202, // 紫→品红
+    213, // 品红
+    234, // 品红→红
+};
+#define Q11_HUE_COUNT (sizeof(q11_hue_table) / sizeof(q11_hue_table[0]))
+
+// 饱和度档位：高端步进缩小（255→225 仅差 30），避免深红一档跳到「几乎不红」
+static const uint8_t q11_sat_table[Q11_SAT_LEVELS] = {0, 48, 110, 175, 225, 255};
 
 static const q11_rgb_mode_t q11_rgb_cycle_modes[] = {Q11_RGB_CYCLE_LIST};
 #define Q11_RGB_CYCLE_COUNT (sizeof(q11_rgb_cycle_modes) / sizeof(q11_rgb_cycle_modes[0]))
@@ -32,9 +52,9 @@ typedef struct {
     uint8_t sat;
 } q11_mono_color_t;
 
-static q11_solid_color_t solid_color = {160, 160, Q11_SAT_LEVELS - 1, Q11_SAT_LEVELS - 1};
-static q11_mono_color_t ripple_color = {160, UINT8_MAX};
-static q11_mono_color_t wave_color   = {160, UINT8_MAX};
+static q11_solid_color_t solid_color = {128, 128, Q11_SAT_LEVELS - 1, Q11_SAT_LEVELS - 1};
+static q11_mono_color_t ripple_color = {128, UINT8_MAX};
+static q11_mono_color_t wave_color   = {128, UINT8_MAX};
 
 typedef enum {
     ZONE_MAIN = 0,
@@ -132,6 +152,41 @@ static uint8_t sat_from_level(uint8_t level) {
     return q11_sat_table[level];
 }
 
+static uint8_t q11_hue_distance(uint8_t a, uint8_t b) {
+    uint8_t d = a > b ? a - b : b - a;
+    return d <= 127 ? d : 255 - d;
+}
+
+static uint8_t q11_hue_index_for_value(uint8_t hue) {
+    uint8_t best      = 0;
+    uint8_t best_dist = 255;
+
+    for (uint8_t i = 0; i < Q11_HUE_COUNT; i++) {
+        uint8_t dist = q11_hue_distance(hue, q11_hue_table[i]);
+        if (dist < best_dist) {
+            best_dist = dist;
+            best      = i;
+        }
+    }
+    return best;
+}
+
+static void q11_hue_snap(uint8_t *hue) {
+    *hue = q11_hue_table[q11_hue_index_for_value(*hue)];
+}
+
+static void cycle_hue(uint8_t *hue, bool decrease) {
+    uint8_t idx = q11_hue_index_for_value(*hue);
+
+    if (decrease) {
+        idx = (idx + Q11_HUE_COUNT - 1) % Q11_HUE_COUNT;
+    } else {
+        idx = (idx + 1) % Q11_HUE_COUNT;
+    }
+
+    *hue = q11_hue_table[idx];
+}
+
 #if defined(RGB_MATRIX_ENABLE) && defined(RGB_MATRIX_SPLIT)
 static void q11_rgb_push_config(void) {
     if (!is_keyboard_master()) {
@@ -188,6 +243,8 @@ static void apply_wave_colors(void) {
 static void apply_solid(void) {
     rgb_matrix_enable();
     rgb_matrix_set_flags_noeeprom(LED_FLAG_ALL);
+    q11_hue_snap(&solid_color.left_hue);
+    q11_hue_snap(&solid_color.right_hue);
     apply_solid_colors();
     rgb_matrix_mode_noeeprom(RGB_MATRIX_CUSTOM_q11_static_solid);
 }
@@ -202,6 +259,7 @@ static void apply_typing_ripple(void) {
     rgb_matrix_enable();
     rgb_matrix_set_flags_noeeprom(LED_FLAG_ALL);
     rgb_matrix_set_speed_noeeprom(64);
+    q11_hue_snap(&ripple_color.hue);
     apply_ripple_colors();
     rgb_matrix_mode_noeeprom(RGB_MATRIX_CUSTOM_q11_typing_ripple);
 }
@@ -210,6 +268,7 @@ static void apply_band_wave(void) {
     rgb_matrix_enable();
     rgb_matrix_set_flags_noeeprom(LED_FLAG_ALL);
     rgb_matrix_set_speed_noeeprom(Q11_BAND_SPEED);
+    q11_hue_snap(&wave_color.hue);
     apply_wave_colors();
     rgb_matrix_mode_noeeprom(RGB_MATRIX_CUSTOM_q11_band_wave);
 }
@@ -264,14 +323,6 @@ q11_rgb_mode_t q11_rgb_get_mode(void) {
     return current_mode;
 }
 
-static void adjust_hue(uint8_t *hue, bool decrease) {
-    if (decrease) {
-        *hue -= Q11_HUE_STEP;
-    } else {
-        *hue += Q11_HUE_STEP;
-    }
-}
-
 static void adjust_sat_level(uint8_t *level, bool decrease) {
     if (decrease) {
         if (*level > 0) {
@@ -309,21 +360,21 @@ bool q11_rgb_process_enc_key(uint16_t keycode, keyrecord_t *record, bool enc_l_h
         case Q11_RGB_SOLID:
             switch (keycode) {
                 case KC_LEFT:
-                    adjust_hue(&solid_color.left_hue, true);
+                    cycle_hue(&solid_color.left_hue, true);
                     solid_color.right_hue = solid_color.left_hue;
                     apply_solid_colors();
                     return true;
                 case KC_RGHT:
-                    adjust_hue(&solid_color.left_hue, false);
+                    cycle_hue(&solid_color.left_hue, false);
                     solid_color.right_hue = solid_color.left_hue;
                     apply_solid_colors();
                     return true;
                 case KC_UP:
-                    adjust_hue(&solid_color.right_hue, false);
+                    cycle_hue(&solid_color.right_hue, false);
                     apply_solid_colors();
                     return true;
                 case KC_DOWN:
-                    adjust_hue(&solid_color.right_hue, true);
+                    cycle_hue(&solid_color.right_hue, true);
                     apply_solid_colors();
                     return true;
                 case KC_PGUP:
@@ -349,11 +400,11 @@ bool q11_rgb_process_enc_key(uint16_t keycode, keyrecord_t *record, bool enc_l_h
         case Q11_RGB_RIPPLE:
             switch (keycode) {
                 case KC_LEFT:
-                    adjust_hue(&ripple_color.hue, true);
+                    cycle_hue(&ripple_color.hue, true);
                     apply_ripple_colors();
                     return true;
                 case KC_RGHT:
-                    adjust_hue(&ripple_color.hue, false);
+                    cycle_hue(&ripple_color.hue, false);
                     apply_ripple_colors();
                     return true;
                 case KC_PGUP:
@@ -371,11 +422,11 @@ bool q11_rgb_process_enc_key(uint16_t keycode, keyrecord_t *record, bool enc_l_h
         case Q11_RGB_WAVE:
             switch (keycode) {
                 case KC_LEFT:
-                    adjust_hue(&wave_color.hue, true);
+                    cycle_hue(&wave_color.hue, true);
                     apply_wave_colors();
                     return true;
                 case KC_RGHT:
-                    adjust_hue(&wave_color.hue, false);
+                    cycle_hue(&wave_color.hue, false);
                     apply_wave_colors();
                     return true;
                 case KC_PGUP:
