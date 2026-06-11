@@ -361,6 +361,36 @@ static void adjust_sat(uint8_t *sat, bool decrease) {
     }
 }
 
+static bool q11_rgb_adjust_hue_lr(uint16_t keycode, uint8_t *hue, void (*apply)(void)) {
+    switch (keycode) {
+        case KC_LEFT:
+            cycle_hue(hue, false);
+            apply();
+            return true;
+        case KC_RGHT:
+            cycle_hue(hue, true);
+            apply();
+            return true;
+        default:
+            return false;
+    }
+}
+
+static bool q11_rgb_adjust_sat_pg(uint16_t keycode, uint8_t *sat, void (*apply)(void)) {
+    switch (keycode) {
+        case KC_PGUP:
+            adjust_sat(sat, false);
+            apply();
+            return true;
+        case KC_PGDN:
+            adjust_sat(sat, true);
+            apply();
+            return true;
+        default:
+            return false;
+    }
+}
+
 bool q11_rgb_process_enc_key(uint16_t keycode, keyrecord_t *record, bool enc_l_held) {
     if (!enc_l_held || current_mode == Q11_RGB_OFF || current_mode == Q11_RGB_ZONE) {
         return false;
@@ -374,19 +404,13 @@ bool q11_rgb_process_enc_key(uint16_t keycode, keyrecord_t *record, bool enc_l_h
         case Q11_RGB_SOLID:
             switch (keycode) {
                 case KC_LEFT:
-                    cycle_hue(&solid_color.left_hue, false);
-                    apply_solid_colors();
-                    return true;
                 case KC_RGHT:
-                    cycle_hue(&solid_color.left_hue, true);
+                    cycle_hue(&solid_color.left_hue, keycode == KC_RGHT);
                     apply_solid_colors();
                     return true;
                 case KC_UP:
-                    cycle_hue(&solid_color.right_hue, false);
-                    apply_solid_colors();
-                    return true;
                 case KC_DOWN:
-                    cycle_hue(&solid_color.right_hue, true);
+                    cycle_hue(&solid_color.right_hue, keycode == KC_DOWN);
                     apply_solid_colors();
                     return true;
                 case KC_PGUP:
@@ -410,48 +434,22 @@ bool q11_rgb_process_enc_key(uint16_t keycode, keyrecord_t *record, bool enc_l_h
             }
 
         case Q11_RGB_RIPPLE:
-            switch (keycode) {
-                case KC_LEFT:
-                    cycle_hue(&ripple_color.hue, true);
-                    apply_ripple_colors();
-                    return true;
-                case KC_RGHT:
-                    cycle_hue(&ripple_color.hue, false);
-                    apply_ripple_colors();
-                    return true;
-                case KC_PGUP:
-                    adjust_sat(&ripple_color.sat, false);
-                    apply_ripple_colors();
-                    return true;
-                case KC_PGDN:
-                    adjust_sat(&ripple_color.sat, true);
-                    apply_ripple_colors();
-                    return true;
-                default:
-                    return false;
+            if (q11_rgb_adjust_hue_lr(keycode, &ripple_color.hue, apply_ripple_colors)) {
+                return true;
             }
+            if (q11_rgb_adjust_sat_pg(keycode, &ripple_color.sat, apply_ripple_colors)) {
+                return true;
+            }
+            return false;
 
         case Q11_RGB_WAVE:
-            switch (keycode) {
-                case KC_LEFT:
-                    cycle_hue(&wave_color.hue, true);
-                    apply_wave_colors();
-                    return true;
-                case KC_RGHT:
-                    cycle_hue(&wave_color.hue, false);
-                    apply_wave_colors();
-                    return true;
-                case KC_PGUP:
-                    adjust_sat(&wave_color.sat, false);
-                    apply_wave_colors();
-                    return true;
-                case KC_PGDN:
-                    adjust_sat(&wave_color.sat, true);
-                    apply_wave_colors();
-                    return true;
-                default:
-                    return false;
+            if (q11_rgb_adjust_hue_lr(keycode, &wave_color.hue, apply_wave_colors)) {
+                return true;
             }
+            if (q11_rgb_adjust_sat_pg(keycode, &wave_color.sat, apply_wave_colors)) {
+                return true;
+            }
+            return false;
 
         default:
             return false;
