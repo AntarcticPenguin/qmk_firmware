@@ -51,7 +51,7 @@ qmk_firmware/
 
 ## 灯光
 
-详见 `q11_rgb/README.md`。调色：纯色 ←/→ 左半、↑/↓ 右半、PgUp/PgDn 饱和度；涟漪/波浪 ←/→ 色相、PgUp/PgDn 饱和度。
+详见 `q11_rgb/README.md`。纯色模式：←/→ 全局色相；↑/↓ 右半色相；PgUp/PgDn 左半饱和度；Ins/Del 右半饱和度。涟漪/波浪：←/→ 色相，PgUp/PgDn 饱和度。
 
 ## 工作流
 

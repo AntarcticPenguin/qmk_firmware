@@ -1,4 +1,4 @@
-RGB_MATRIX_EFFECT(q11_static_dual)
+RGB_MATRIX_EFFECT(q11_static_solid)
 RGB_MATRIX_EFFECT(q11_static_zone)
 RGB_MATRIX_EFFECT(q11_typing_ripple)
 RGB_MATRIX_EFFECT(q11_band_wave)
@@ -15,7 +15,7 @@ RGB_MATRIX_EFFECT(q11_band_wave)
 
 void q11_rgb_render_static(uint8_t led_min, uint8_t led_max);
 
-bool q11_static_dual(effect_params_t* params) {
+bool q11_static_solid(effect_params_t* params) {
     RGB_MATRIX_USE_LIMITS(led_min, led_max);
     q11_rgb_render_static(led_min, led_max);
     return rgb_matrix_check_finished_leds(led_max);

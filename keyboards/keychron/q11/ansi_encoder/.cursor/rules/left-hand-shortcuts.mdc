@@ -17,6 +17,8 @@ alwaysApply: false
 | Home 单击 | Ctrl+C |
 | PgDn 单击 | Ctrl+V |
 | PgUp 单击 | Ctrl+A |
+| Ins 单击 | Ctrl+Shift+Esc |
+| Del 单击 | Ctrl+Alt+A |
 | Home+← | Ctrl+Z |
 | Home+↓ | Ctrl+Shift+Z |
 | 右Ctrl+Home | Ctrl+X |

@@ -19,6 +19,8 @@ typedef struct {
     bool     pgdn_chord;
     uint16_t pgdn_timer;
     uint16_t pgup_timer;
+    uint16_t ins_timer;
+    uint16_t del_timer;
     bool     left_held;
     bool     down_held;
     bool     repeat_undo;
@@ -180,12 +182,33 @@ bool q11_shortcuts_process_record(uint16_t keycode, keyrecord_t *record) {
             }
             return false;
 
-        case KC_DEL:
-            if (record->event.pressed && (get_mods() & MOD_MASK_CTRL) && (get_mods() & MOD_MASK_ALT)) {
-                tap_code(MS_BTN1);
+        case KC_INS:
+            if (q11_rgb_process_enc_key(keycode, record, shortcut_state.enc_l_held)) {
+                if (record->event.pressed) {
+                    shortcut_state.enc_l_chord = true;
+                }
                 return false;
             }
-            return true;
+            if (record->event.pressed) {
+                shortcut_state.ins_timer = timer_read();
+            } else if (timer_elapsed(shortcut_state.ins_timer) < TAP_TERM_MS) {
+                tap_code16(LSFT(LCTL(KC_ESC)));
+            }
+            return false;
+
+        case KC_DEL:
+            if (q11_rgb_process_enc_key(keycode, record, shortcut_state.enc_l_held)) {
+                if (record->event.pressed) {
+                    shortcut_state.enc_l_chord = true;
+                }
+                return false;
+            }
+            if (record->event.pressed) {
+                shortcut_state.del_timer = timer_read();
+            } else if (timer_elapsed(shortcut_state.del_timer) < TAP_TERM_MS) {
+                tap_code16(LCTL(LALT(KC_A)));
+            }
+            return false;
 
         case KC_LEFT:
         case KC_RGHT:

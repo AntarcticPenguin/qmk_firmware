@@ -21,7 +21,8 @@ static const q11_rgb_mode_t q11_rgb_cycle_modes[] = {Q11_RGB_CYCLE_LIST};
 static q11_rgb_mode_t current_mode = Q11_RGB_OFF;
 
 typedef struct {
-    uint8_t hue;
+    uint8_t left_hue;
+    uint8_t right_hue;
     uint8_t left_sat_level;
     uint8_t right_sat_level;
 } q11_solid_color_t;
@@ -31,7 +32,7 @@ typedef struct {
     uint8_t sat;
 } q11_mono_color_t;
 
-static q11_solid_color_t solid_color = {160, Q11_SAT_LEVELS - 1, Q11_SAT_LEVELS - 1};
+static q11_solid_color_t solid_color = {160, 160, Q11_SAT_LEVELS - 1, Q11_SAT_LEVELS - 1};
 static q11_mono_color_t ripple_color = {160, UINT8_MAX};
 static q11_mono_color_t wave_color   = {160, UINT8_MAX};
 
@@ -146,6 +147,19 @@ static void q11_rgb_push_config(void) {
 static void q11_rgb_push_config(void) {}
 #endif
 
+// 纯色模式 split 同步：复用 rgb_matrix_config 字段（仅 Q11_RGB_SOLID 渲染时生效）
+//   hsv.h   → 左半色相
+//   hsv.s   → 右半色相（此处不是 HSV 饱和度）
+//   speed   → 高 4 位左半 sat 档，低 4 位右半 sat 档
+
+static uint8_t q11_solid_hue_for_this_half(void) {
+#if defined(RGB_MATRIX_SPLIT)
+    return is_keyboard_left() ? rgb_matrix_config.hsv.h : rgb_matrix_config.hsv.s;
+#else
+    return rgb_matrix_config.hsv.h;
+#endif
+}
+
 static uint8_t q11_solid_sat_for_this_half(void) {
     const uint8_t packed = rgb_matrix_config.speed;
 #if defined(RGB_MATRIX_SPLIT)
@@ -157,8 +171,8 @@ static uint8_t q11_solid_sat_for_this_half(void) {
 }
 
 static void apply_solid_colors(void) {
-    rgb_matrix_config.hsv.h = solid_color.hue;
-    rgb_matrix_config.hsv.s = sat_from_level(solid_color.left_sat_level);
+    rgb_matrix_config.hsv.h = solid_color.left_hue;
+    rgb_matrix_config.hsv.s = solid_color.right_hue;
     rgb_matrix_config.speed = ((solid_color.left_sat_level & 0x0F) << 4) | (solid_color.right_sat_level & 0x0F);
     q11_rgb_push_config();
 }
@@ -171,11 +185,11 @@ static void apply_wave_colors(void) {
     rgb_matrix_sethsv_noeeprom(wave_color.hue, wave_color.sat, q11_rgb_brightness());
 }
 
-static void apply_static_dual(void) {
+static void apply_solid(void) {
     rgb_matrix_enable();
     rgb_matrix_set_flags_noeeprom(LED_FLAG_ALL);
     apply_solid_colors();
-    rgb_matrix_mode_noeeprom(RGB_MATRIX_CUSTOM_q11_static_dual);
+    rgb_matrix_mode_noeeprom(RGB_MATRIX_CUSTOM_q11_static_solid);
 }
 
 static void apply_static_zone(void) {
@@ -208,7 +222,7 @@ void q11_rgb_apply_mode(q11_rgb_mode_t mode) {
             rgb_matrix_disable();
             break;
         case Q11_RGB_SOLID:
-            apply_static_dual();
+            apply_solid();
             break;
         case Q11_RGB_ZONE:
             apply_static_zone();
@@ -295,13 +309,21 @@ bool q11_rgb_process_enc_key(uint16_t keycode, keyrecord_t *record, bool enc_l_h
         case Q11_RGB_SOLID:
             switch (keycode) {
                 case KC_LEFT:
-                case KC_DOWN:
-                    adjust_hue(&solid_color.hue, true);
+                    adjust_hue(&solid_color.left_hue, true);
+                    solid_color.right_hue = solid_color.left_hue;
                     apply_solid_colors();
                     return true;
                 case KC_RGHT:
+                    adjust_hue(&solid_color.left_hue, false);
+                    solid_color.right_hue = solid_color.left_hue;
+                    apply_solid_colors();
+                    return true;
                 case KC_UP:
-                    adjust_hue(&solid_color.hue, false);
+                    adjust_hue(&solid_color.right_hue, false);
+                    apply_solid_colors();
+                    return true;
+                case KC_DOWN:
+                    adjust_hue(&solid_color.right_hue, true);
                     apply_solid_colors();
                     return true;
                 case KC_PGUP:
@@ -374,10 +396,10 @@ bool q11_rgb_process_enc_key(uint16_t keycode, keyrecord_t *record, bool enc_l_h
 }
 
 void q11_rgb_render_static(uint8_t led_min, uint8_t led_max) {
-    const bool dual_mode = (rgb_matrix_config.mode == RGB_MATRIX_CUSTOM_q11_static_dual);
-    const bool zone_mode = (rgb_matrix_config.mode == RGB_MATRIX_CUSTOM_q11_static_zone);
+    const bool solid_mode = (rgb_matrix_config.mode == RGB_MATRIX_CUSTOM_q11_static_solid);
+    const bool zone_mode  = (rgb_matrix_config.mode == RGB_MATRIX_CUSTOM_q11_static_zone);
 
-    if (!dual_mode && !zone_mode) {
+    if (!solid_mode && !zone_mode) {
         return;
     }
 
@@ -390,9 +412,9 @@ void q11_rgb_render_static(uint8_t led_min, uint8_t led_max) {
 
         rgb_t rgb;
 
-        if (dual_mode) {
+        if (solid_mode) {
             hsv_t hsv = {
-                rgb_matrix_config.hsv.h,
+                q11_solid_hue_for_this_half(),
                 q11_solid_sat_for_this_half(),
                 brightness,
             };
