@@ -32,6 +32,8 @@ firmware_list.json
 api_data/v1
 quantum/version.h
 *.bin
+!firmware/office/keychron_q11/latest.bin
+!firmware/gaming/keychron_q11/latest.bin
 *.eep
 *.hex
 *.qmk

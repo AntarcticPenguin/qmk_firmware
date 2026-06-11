@@ -12,7 +12,8 @@
 #define Q11_SAT_LEVELS 5
 #define Q11_BAND_SPEED (UINT8_MAX / 4)
 
-static const uint8_t q11_sat_table[Q11_SAT_LEVELS] = {0, 64, 128, 192, 255};
+// 0 = 近白，255 = 最浓；中间档在同色相下由浅到深
+static const uint8_t q11_sat_table[Q11_SAT_LEVELS] = {0, 48, 112, 180, 255};
 
 static const q11_rgb_mode_t q11_rgb_cycle_modes[] = {Q11_RGB_CYCLE_LIST};
 #define Q11_RGB_CYCLE_COUNT (sizeof(q11_rgb_cycle_modes) / sizeof(q11_rgb_cycle_modes[0]))
@@ -20,18 +21,17 @@ static const q11_rgb_mode_t q11_rgb_cycle_modes[] = {Q11_RGB_CYCLE_LIST};
 static q11_rgb_mode_t current_mode = Q11_RGB_OFF;
 
 typedef struct {
-    uint8_t left_hue;
-    uint8_t right_hue;
+    uint8_t hue;
     uint8_t left_sat_level;
     uint8_t right_sat_level;
-} q11_dual_color_t;
+} q11_solid_color_t;
 
 typedef struct {
     uint8_t hue;
     uint8_t sat;
 } q11_mono_color_t;
 
-static q11_dual_color_t solid_color = {160, 28, Q11_SAT_LEVELS - 1, Q11_SAT_LEVELS - 1};
+static q11_solid_color_t solid_color = {160, Q11_SAT_LEVELS - 1, Q11_SAT_LEVELS - 1};
 static q11_mono_color_t ripple_color = {160, UINT8_MAX};
 static q11_mono_color_t wave_color   = {160, UINT8_MAX};
 
@@ -146,14 +146,6 @@ static void q11_rgb_push_config(void) {
 static void q11_rgb_push_config(void) {}
 #endif
 
-static uint8_t q11_solid_hue_for_this_half(void) {
-#if defined(RGB_MATRIX_SPLIT)
-    return is_keyboard_left() ? rgb_matrix_config.hsv.h : rgb_matrix_config.hsv.s;
-#else
-    return rgb_matrix_config.hsv.h;
-#endif
-}
-
 static uint8_t q11_solid_sat_for_this_half(void) {
     const uint8_t packed = rgb_matrix_config.speed;
 #if defined(RGB_MATRIX_SPLIT)
@@ -165,8 +157,8 @@ static uint8_t q11_solid_sat_for_this_half(void) {
 }
 
 static void apply_solid_colors(void) {
-    rgb_matrix_config.hsv.h = solid_color.left_hue;
-    rgb_matrix_config.hsv.s = solid_color.right_hue;
+    rgb_matrix_config.hsv.h = solid_color.hue;
+    rgb_matrix_config.hsv.s = sat_from_level(solid_color.left_sat_level);
     rgb_matrix_config.speed = ((solid_color.left_sat_level & 0x0F) << 4) | (solid_color.right_sat_level & 0x0F);
     q11_rgb_push_config();
 }
@@ -276,14 +268,6 @@ static void adjust_sat_level(uint8_t *level, bool decrease) {
     }
 }
 
-static void cycle_sat_level(uint8_t *level) {
-    if (*level >= Q11_SAT_LEVELS - 1) {
-        *level = 0;
-    } else {
-        (*level)++;
-    }
-}
-
 static void adjust_sat(uint8_t *sat, bool decrease) {
     if (decrease) {
         if (*sat > Q11_SAT_STEP) {
@@ -311,19 +295,13 @@ bool q11_rgb_process_enc_key(uint16_t keycode, keyrecord_t *record, bool enc_l_h
         case Q11_RGB_SOLID:
             switch (keycode) {
                 case KC_LEFT:
-                    adjust_hue(&solid_color.left_hue, true);
+                case KC_DOWN:
+                    adjust_hue(&solid_color.hue, true);
                     apply_solid_colors();
                     return true;
                 case KC_RGHT:
-                    adjust_hue(&solid_color.left_hue, false);
-                    apply_solid_colors();
-                    return true;
                 case KC_UP:
-                    adjust_hue(&solid_color.right_hue, false);
-                    apply_solid_colors();
-                    return true;
-                case KC_DOWN:
-                    adjust_hue(&solid_color.right_hue, true);
+                    adjust_hue(&solid_color.hue, false);
                     apply_solid_colors();
                     return true;
                 case KC_PGUP:
@@ -334,8 +312,12 @@ bool q11_rgb_process_enc_key(uint16_t keycode, keyrecord_t *record, bool enc_l_h
                     adjust_sat_level(&solid_color.left_sat_level, true);
                     apply_solid_colors();
                     return true;
-                case KC_HOME:
-                    cycle_sat_level(&solid_color.right_sat_level);
+                case KC_INS:
+                    adjust_sat_level(&solid_color.right_sat_level, false);
+                    apply_solid_colors();
+                    return true;
+                case KC_DEL:
+                    adjust_sat_level(&solid_color.right_sat_level, true);
                     apply_solid_colors();
                     return true;
                 default:
@@ -410,7 +392,7 @@ void q11_rgb_render_static(uint8_t led_min, uint8_t led_max) {
 
         if (dual_mode) {
             hsv_t hsv = {
-                q11_solid_hue_for_this_half(),
+                rgb_matrix_config.hsv.h,
                 q11_solid_sat_for_this_half(),
                 brightness,
             };

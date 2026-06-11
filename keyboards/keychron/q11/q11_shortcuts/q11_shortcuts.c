@@ -80,6 +80,8 @@ bool q11_shortcuts_process_record(uint16_t keycode, keyrecord_t *record) {
             case KC_DOWN:
             case KC_PGUP:
             case KC_PGDN:
+            case KC_INS:
+            case KC_DEL:
             case KC_HOME:
                 q11_rgb_process_enc_key(keycode, record, true);
                 if (record->event.pressed) {
